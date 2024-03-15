@@ -5,7 +5,7 @@ from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site, Site
 from ipam.models import VLAN, VLANGroup
 from tenancy.models import Tenant
 
-class NewBranchScript(Script):
+class NewProjectSiteScript(Script):
 
     class Meta:
         name = "New Projct Site Script"
