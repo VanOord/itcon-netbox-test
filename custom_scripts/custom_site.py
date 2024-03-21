@@ -8,7 +8,7 @@ from tenancy.models import Tenant
 class NewProjectSiteScript(Script):
 
     class Meta:
-        name = "New Projct Site Script"
+        name = "New Project Site Script"
         description = "Provision a new Projct Site with enhanced options and updated naming conventions."
 
     site_name = StringVar(description="Name of the new site")
