@@ -44,9 +44,12 @@ class UpdateFirmwareField(Script):
             serial = device['serial']
             firmware = device.get('firmware', 'Unknown')  # Use 'Unknown' if firmware information is missing
             
-            # Find the corresponding device in NetBox by serial number
             try:
                 nb_device = Device.objects.get(serial=serial)
+                # Check if firmware is already up-to-date
+                if nb_device.custom_field_data.get('firmware') == firmware:
+                    self.log_info(f"Skipped {nb_device.name} as firmware is already up-to-date")
+                    continue
                 # Update the 'firmware' custom field
                 nb_device.custom_field_data['firmware'] = firmware
                 nb_device.save()
