@@ -1,6 +1,9 @@
+from ipam.choices import IPAddressRoleChoices
+from ipam.models import IPAddress, Prefix
 from dcim.choices import DeviceStatusChoices
 from dcim.models import Device
 from extras.reports import Report
+
 
 class DeviceIPReport(Report):
     description = "Check that every device has either an IPv4 or IPv6 primary address assigned"
