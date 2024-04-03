@@ -48,7 +48,7 @@ class UniqueIPReport(Report):
         already_found = []
         for ip in IPAddress.objects.exclude(Q(role=IPAddressRoleChoices.ROLE_ANYCAST) | Q(role=IPAddressRoleChoices.ROLE_VIP) | Q(role=IPAddressRoleChoices.ROLE_VRRP)):
             if str(ip.address) in already_found:
-               continue
+                continue
             elif not ip.interface:
                 continue
             duplicates = ip.get_duplicates()
