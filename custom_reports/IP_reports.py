@@ -36,3 +36,12 @@ class DeviceIPReport(Report):
                         self.log_info(device, "Device is missing primary IPv6 address")
                     else:
                         self.log_success(device)
+
+
+class DuplicateIPPrefixes(Report):
+    description = "Find duplicate IP prefixes."
+
+    def test_duplicates(self):
+        for prefix in Prefixes.objects.filter(vrf=None)
+            self.log_info(prefix, "Found.")
+
