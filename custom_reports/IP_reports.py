@@ -45,6 +45,5 @@ class DuplicateIPPrefixes(Report):
     description = "Find duplicate IP prefixes."
 
     def test_duplicates(self):
-        for prefix in Prefixes.objects.filter(vrf=None)
+        for prefix in list(Prefix.objects.all())
             self.log_info(prefix, "Found.")
-
