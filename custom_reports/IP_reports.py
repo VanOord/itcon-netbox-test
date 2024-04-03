@@ -5,11 +5,14 @@ from dcim.models import Device
 from extras.reports import Report
 from django.db.models import Q
 
-
 class DeviceIPReport(Report):
+    """
+    Check that every device has either an IPv4 or IPv6 primary address assigned
+    """
     description = "Check that every device has either an IPv4 or IPv6 primary address assigned"
 
     def test_primary_ip4(self):
+        """ Test for primary IPv4 addressen on devices """
         for device in Device.objects.filter(status=DeviceStatusChoices.STATUS_ACTIVE):
             intcount = 0
             for interface in device.interfaces.all():
@@ -42,14 +45,18 @@ class DeviceIPReport(Report):
                         self.log_success(device)
 
 class UniqueIPReport(Report):
+    """
+    Validate that we don't have an IP address allocated multiple times in the network
+    """
     description = "Validate that we don't have an IP address allocated multiple times in the network"
 
     def test_unique_ip(self):
+        """ test if very IP is indeed unique """
         already_found = []
         for ip in IPAddress.objects.exclude(Q(role=IPAddressRoleChoices.ROLE_ANYCAST) | Q(role=IPAddressRoleChoices.ROLE_VIP) | Q(role=IPAddressRoleChoices.ROLE_VRRP)):
             if str(ip.address) in already_found:
                 continue
-            elif not ip.interface:
+            if not ip.interface:
                 continue
             duplicates = ip.get_duplicates()
             real_dup = 0
@@ -59,15 +66,23 @@ class UniqueIPReport(Report):
             if real_dup != 0:
                 already_found.append(str(ip.address))
                 msg = "has %s duplicate ips" % real_dup
-                self.log_failure( ip, msg )
+                self.log_failure(ip, msg)
 
 
 class UniquePrefixReport(Report):
+    """
+    Validate that we don't have a Prefix allocated multiple times in a VRF
+    """
     description = "Validate that we don't have a Prefix allocated multiple times in a VRF"
 
     def test_unique_prefix(self):
+        """ test if every prefix is indeed unique """
+        already_found = []
         for prefix in Prefix.objects.all():
+            if str(prefix.prefix) in already_found:
+                continue
             duplicate_prefixes = Prefix.objects.filter(vrf=prefix.vrf, prefix=str(prefix.prefix)).exclude(pk=prefix.pk)
-            if len(duplicate_prefixes) > 0 :
+            if len(duplicate_prefixes) > 0: 
+                already_found.append(str(prefix.prefix))
                 msg = "has %s duplicate prefix(es)" % len(duplicate_prefixes)
-                self.log_failure( prefix, msg )
+                self.log_failure(prefix, msg)
