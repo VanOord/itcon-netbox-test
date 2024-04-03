@@ -40,15 +40,12 @@ class DeviceIPReport(Report):
                     else:
                         self.log_success(device)
 
+class UniquePrefixReport(Report):
+    description = "Validate that we don't have a Prefix allocated multiple times in a VRF"
 
-class DuplicatePrefixReport(Report):
-    description = "Find duplicate IP prefixes."
-
-    def test_duplicates(self):
-        prefixes = list(Prefix.objects.all())
-        prefixes.sort(key=lambda k: k.prefix)
-        for prefix in prefixes:
-            if list(Prefix.objects.filter(prefix=prefix) > 1:
-                self.log_info(prefix, "has a duplicate")
-
-
+    def test_unique_prefix(self):
+        for prefix in Prefix.objects.all():
+            duplicate_prefixes = Prefix.objects.filter(vrf=prefix.vrf, prefix=str(prefix.prefix)).exclude(pk=prefix.pk)
+            if len(duplicate_prefixes) > 0 :
+                msg = "has %s duplicate prefix(es)" % len(duplicate_prefixes)
+                self.log_failure( prefix, msg )
