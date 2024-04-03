@@ -44,7 +44,7 @@ class DeviceIPReport(Report):
                     else:
                         self.log_success(device)
 
-class UniqueIPReport(Report):
+class DuplicateIPReport(Report):
     """
     Validate that we don't have an IP address allocated multiple times in the network
     """
@@ -69,7 +69,7 @@ class UniqueIPReport(Report):
                 self.log_failure(ip, msg)
 
 
-class UniquePrefixReport(Report):
+class DuplicatePrefixReport(Report):
     """
     Validate that we don't have a Prefix allocated multiple times in a VRF
     """
@@ -86,3 +86,4 @@ class UniquePrefixReport(Report):
                 already_found.append(str(prefix.prefix))
                 msg = "has %s duplicate prefix(es)" % len(duplicate_prefixes)
                 self.log_failure(prefix, msg)
+
