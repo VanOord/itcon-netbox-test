@@ -3,6 +3,7 @@ from ipam.models import IPAddress, Prefix
 from dcim.choices import DeviceStatusChoices
 from dcim.models import Device
 from extras.reports import Report
+from django.db.models import Q
 
 
 class DeviceIPReport(Report):
@@ -39,6 +40,27 @@ class DeviceIPReport(Report):
                         self.log_info(device, "Device is missing primary IPv6 address")
                     else:
                         self.log_success(device)
+
+class UniqueIPReport(Report):
+    description = "Validate that we don't have an IP address allocated multiple times in the network"
+
+    def test_unique_ip(self):
+        already_found = []
+        for ip in IPAddress.objects.exclude(Q(role=IPAddressRoleChoices.ROLE_ANYCAST) | Q(role=IPAddressRoleChoices.ROLE_VIP) | Q(role=IPAddressRoleChoices.ROLE_VRRP)):
+            if str(ip.address) in already_found:
+               continue
+            elif not ip.interface:
+                continue
+            duplicates = ip.get_duplicates()
+            real_dup = 0
+            for duplicate in duplicates:
+                if duplicate.interface:
+                    real_dup +=1
+            if real_dup != 0:
+                already_found.append(str(ip.address))
+                msg = "has %s duplicate ips" % real_dup
+                self.log_failure( ip, msg )
+
 
 class UniquePrefixReport(Report):
     description = "Validate that we don't have a Prefix allocated multiple times in a VRF"
