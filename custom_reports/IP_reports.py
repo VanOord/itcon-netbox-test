@@ -67,6 +67,9 @@ class DuplicateIPReport(Report):
                 already_found.append(str(ip.address))
                 msg = "has %s duplicate ips" % real_dup
                 self.log_failure(ip, msg)
+            else:
+                msg = "%s is unique" % str(ip.address)
+                self.log_success(ip, msg)
 
 
 class DuplicatePrefixReport(Report):
@@ -86,4 +89,7 @@ class DuplicatePrefixReport(Report):
                 already_found.append(str(prefix.prefix))
                 msg = "has %s duplicate prefix(es)" % len(duplicate_prefixes)
                 self.log_failure(prefix, msg)
+            else:
+                msg = "%s is unique" % str(prefix.prefix)
+                self.log_success(prefix, msg)
 
