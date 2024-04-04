@@ -50,7 +50,7 @@ class UpdateNetBoxSiteFromMeraki(Script):
         ]
 
         updated_sites_count = 0
-        for site in Site.objects.all():
+        for site in Site.objects.exclude(name="Inventory"):
             # Flags to ensure each custom field is updated only once per site
             updated_networkid = False
             updated_clientcrew_networkid = False
@@ -84,7 +84,7 @@ class UpdateNetBoxSiteFromMeraki(Script):
 
         self.log_info("Updating NetBox sites with custom URLs based on 'ClientCrew' presence.")
         updated_urls_count = 0
-        for site in Site.objects.all():
+        for site in Site.objects.exclude(name="Inventory"):
             # Initialize flags to track updates to prevent redundant operations
             update_url = True
             update_clientcrew_url = True
@@ -110,6 +110,18 @@ class UpdateNetBoxSiteFromMeraki(Script):
                 if commit:
                     site.save()
                     updated_urls_count += 1
+
+        if commit:
+            try:
+                inventory_site = Site.objects.get(name="Inventory")
+                # Clear specified custom fields
+                fields_to_clear = ['meraki_clientcrew_networkid', 'url', 'clientcrew_url', 'meraki_network_eid', 'meraki_networkid']
+                for field in fields_to_clear:
+                    inventory_site.custom_field_data[field] = ''
+                inventory_site.save()
+                self.log_success(f"Cleared custom fields for 'Inventory' site.")
+            except Site.DoesNotExist:
+                self.log_warning("The 'Inventory' site does not exist. No custom fields cleared.")
 
         self.log_success(f"Completed updating custom URLs for {updated_urls_count} sites.")
 
