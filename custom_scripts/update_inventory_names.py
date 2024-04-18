@@ -1,57 +1,70 @@
-from dcim.models import Device, DeviceRole, DeviceType, Manufacturer, Site
-from dcim.choices import *
-from taggit.models import Tag
 from extras.scripts import *
+from django.utils.text import slugify
+from dcim.models import Device, Site
+from dcim.choices import DeviceStatusChoices
+from ipam.models import VLAN, Prefix
 
-
-class UpdateDeviceNames(Script):
+class DeleteSiteAndMoveDevicesToInventory(Script):
     class Meta:
-        name = "Update SDWAN Device Names with Multiple Tags"
-        description = "Updates device names for devices in a specific site with multiple inclusion tags and excludes those with any of the specified exclusion tags."
-        field_order = ['site_name', 'include_tags', 'exclude_tags']
+        name = "Move Retired Site Devices to Inventory"
+        description = "Moves devices from a specified RETIRED site to the 'Inventory' site, changes their status, cleans custom fields, deassociates VLANs from the site, and optionally deletes the site after confirming each step."
 
-    site_name = StringVar(
-        description="Name of the site",
-        default="Inventory"
+    site = ObjectVar(
+        model=Site,
+        description="Select the RETIRED site to process",
+        query_params={"status": "retired"}
     )
-    include_tags = StringVar(
-        description="Comma-separated tags to include (leave blank to include all within site)",
-        default="SDWAN Devices Meraki"
-    )
-    exclude_tags = StringVar(
-        description="Comma-separated tags to exclude (leave blank to exclude none)",
-        default="Site Mismatched Device"
-    )
+    move_confirmation = BooleanVar(description="Confirm moving devices to inventory")
+    delete_confirmation = BooleanVar(description="Confirm deletion of the site")
 
     def run(self, data, commit):
-        # Convert comma-separated string to list and strip spaces
-        include_tags_list = [tag.strip() for tag in data['include_tags'].split(',')] if data['include_tags'] else []
-        exclude_tags_list = [tag.strip() for tag in data['exclude_tags'].split(',')] if data['exclude_tags'] else []
+        site = data['site']
+        inventory_site = Site.objects.get(name="Inventory")
 
-        # Start querying all devices in the specified site
-        devices = Device.objects.filter(site__name=data['site_name'])
+        if not data.get('move_confirmation'):
+            self.log_warning("Move to inventory not confirmed. Operation cancelled.")
+            return
 
-        # Filter by include tags if any
-        if include_tags_list:
-            devices = devices.filter(tags__name__in=include_tags_list).distinct()
-
-        # Exclude by tags if any
-        if exclude_tags_list:
-            devices = devices.exclude(tags__name__in=exclude_tags_list)
-
-        updated_devices = 0
-
-        # Loop through each device and update the name
+        # Fetch devices from the site
+        devices = Device.objects.filter(site=site)
         for device in devices:
-            new_name = f"{device.device_type} | {device.serial}"
-            if device.name != new_name:
-                device.name = new_name
-                if commit:
-                    device.save()
-                self.log_success(f"Updated device {device.name} to new name {new_name}")
-                updated_devices += 1
+            self.log_info(f"Moving and updating device: {device.name}")
+            # Clear custom fields
+            for field in device.custom_field_data:
+                device.custom_field_data[field] = None
+            # Update the device name
+            device.name = f"{device.device_type} | {device.serial}".upper()  # Ensure the name is in uppercase
+            # Update site and status
+            device.site = inventory_site
+            device.status = DeviceStatusChoices.STATUS_INVENTORY
+            device.save()
+
+        # Re-fetch or re-count the devices to check if any are still associated with the original site
+        devices_left = Device.objects.filter(site=site).count()
+        self.log_info(f"Devices remaining at site '{site.name}': {devices_left}")
+
+        # Deassociate VLANs
+        vlans = VLAN.objects.filter(site=site)
+        for vlan in vlans:
+            self.log_info(f"Deassociating VLAN: {vlan.name} (ID: {vlan.pk}, VID: {vlan.vid})")
+            vlan.site = None
+            vlan.save()
+        vlan_count = vlans.count()
+        self.log_success(f"Deassociated {vlan_count} VLANs from '{site.name}'.")
+
+        # Delete associated prefixes
+        prefixes = Prefix.objects.filter(site=site)
+        for prefix in prefixes:
+            self.log_info(f"Deleting prefix: {prefix.prefix} (ID: {prefix.pk})")
+        prefixes.delete()
+        prefix_count = prefixes.count()
+        self.log_success(f"Deleted {prefix_count} prefixes associated with '{site.name}'.")
+
+        if data.get('delete_confirmation'):
+            if devices_left == 0:
+                site.delete()
+                self.log_success(f"Site '{site.name}' deleted as no devices were left after reassignment.")
             else:
-                self.log_info(f"No update required for {device.name}")
-
-        return f"Total devices updated: {updated_devices}"
-
+                self.log_warning("Site not deleted because there are still devices associated with it.")
+        else:
+            self.log_warning("Site deletion not confirmed.")

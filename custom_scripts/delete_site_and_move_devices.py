@@ -29,8 +29,12 @@ class DeleteSiteAndMoveDevicesToInventory(Script):
         devices = Device.objects.filter(site=site)
         for device in devices:
             self.log_info(f"Moving and updating device: {device.name}")
+            # Clear custom fields
             for field in device.custom_field_data:
                 device.custom_field_data[field] = None
+            # Update the device name
+            device.name = f"{device.device_type} | {device.serial}".upper()  # Ensure the name is in uppercase
+            # Update site and status
             device.site = inventory_site
             device.status = DeviceStatusChoices.STATUS_INVENTORY
             device.save()
@@ -39,7 +43,7 @@ class DeleteSiteAndMoveDevicesToInventory(Script):
         devices_left = Device.objects.filter(site=site).count()
         self.log_info(f"Devices remaining at site '{site.name}': {devices_left}")
 
-        # Fetch, deassociate, and log VLANs
+        # Deassociate VLANs
         vlans = VLAN.objects.filter(site=site)
         for vlan in vlans:
             self.log_info(f"Deassociating VLAN: {vlan.name} (ID: {vlan.pk}, VID: {vlan.vid})")
@@ -48,6 +52,7 @@ class DeleteSiteAndMoveDevicesToInventory(Script):
         vlan_count = vlans.count()
         self.log_success(f"Deassociated {vlan_count} VLANs from '{site.name}'.")
 
+        # Delete associated prefixes
         prefixes = Prefix.objects.filter(site=site)
         for prefix in prefixes:
             self.log_info(f"Deleting prefix: {prefix.prefix} (ID: {prefix.pk})")

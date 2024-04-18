@@ -49,6 +49,13 @@ class NewProjectSiteScript(Script):
 
     def run(self, data, commit):
 
+        # Initialize counters
+        device_counters = {
+            "SDWAN-Appliance": 0,
+            "SDWAN-AP": 0,
+            "SDWAN-Switch": 0,
+        }
+
         # Create Site
         site = self.create_site(data)
         if not site:
@@ -59,11 +66,11 @@ class NewProjectSiteScript(Script):
 
         # Assign selected devices to the new site
         if data['routers']:
-            self.assign_devices_to_site(data['routers'], site, 'Router')
+            self.assign_devices_to_site(data['routers'], site, 'Router', device_counters)
         if data['switches']:
-            self.assign_devices_to_site(data['switches'], site, 'Switch')
+            self.assign_devices_to_site(data['switches'], site, 'Switch', device_counters)
         if data['access_points']:
-            self.assign_devices_to_site(data['access_points'], site, 'Access Point')
+            self.assign_devices_to_site(data['access_points'], site, 'Access Point', device_counters)
 
         # New step: Check and log available /24 prefixes for each VLAN
         vlan_prefix_mappings = {
@@ -139,14 +146,32 @@ class NewProjectSiteScript(Script):
         except Exception as e:
             self.log_failure(f"Failed to create VLANs: {e}")
 
-    def assign_devices_to_site(self, devices, site, device_type):
+    def rename_device_based_on_role(self, device, site_code, device_counters):
+        device_role_name = device.device_role.name
+        index = device_counters.get(device_role_name, 0) + 1
+        device_counters[device_role_name] = index
+
+        if device_role_name == "SDWAN-Appliance":
+            new_name = f"{site_code}-MX-FW{index}".upper()
+        elif device_role_name == "SDWAN-Switch":
+            new_name = f"{site_code}-MS-SW{index:02}".upper()
+        elif device_role_name == "SDWAN-AP":
+            new_name = f"{site_code}-MR-AP{index:02}".upper()
+        else:
+            new_name = device.name
+
+        device.name = new_name
+        device.save()
+        self.log_success(f"Renamed device {device.name} based on its role: {device_role_name}")
+
+    def assign_devices_to_site(self, devices, site, device_type, device_counters):
         for device in devices:
-            original_device_type = device.device_type  # Keep the original device type
+            self.rename_device_based_on_role(device, site.slug, device_counters)
             device.site = site
             device.status = DeviceStatusChoices.STATUS_ACTIVE
-            device.device_type = original_device_type  # Re-assign the original device type in case it changed anywhere else
             device.save()
-            self.log_success(f"Assigned {device_type} {device.name} to site {site.name}")
+            self.log_success(f"Assigned and renamed {device_type} {device.name} to site {site.name}")
+
 
     def find_available_prefixes(self, container_prefix_str, desired_prefix_len=24):
         parent_prefix_net = IPNetwork(container_prefix_str)
