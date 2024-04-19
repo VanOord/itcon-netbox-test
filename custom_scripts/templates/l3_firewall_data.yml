@@ -1,0 +1,98 @@
+---
+project:
+  - comment: Allow Meraki DFT
+    policy: allow
+    protocol: any
+    srcCidr: VLAN1
+    srcPort: any
+    destCidr: any
+    destPort: any
+    syslogEnabled: true
+  - comment: Allow MGMT
+    policy: allow
+    protocol: any
+    srcCidr: VLAN400
+    srcPort: any
+    destCidr: any
+    destPort: any
+    syslogEnabled: true
+  - comment: Allow DC to MGMT
+    policy: allow
+    protocol: tcp
+    srcCidr: "VANOORD_DC"
+    srcPort: any
+    destCidr: VLAN400
+    destPort: any
+    syslogEnabled: true
+  - comment: Allow Azure to MGMT
+    policy: allow
+    protocol: tcp
+    srcCidr: 10.111.0.0/16,10.180.0.0/16
+    srcPort: any
+    destCidr: VLAN400
+    destPort: any
+    syslogEnabled: true
+  - comment: Deny WAN to MGMT
+    policy: deny
+    protocol: any
+    srcCidr: 10.0.0.0/8
+    srcPort: any
+    destCidr: VLAN400
+    destPort: any
+    syslogEnabled: true
+  - comment: Allow QRTE Printing
+    policy: allow
+    protocol: any
+    srcCidr: VLAN700
+    srcPort: any
+    destCidr: PRINT500
+    destPort: any
+    syslogEnabled: true
+  - comment: Deny QRTE WAN
+    policy: deny
+    protocol: any
+    srcCidr: VLAN700
+    srcPort: any
+    destCidr: 10.0.0.0/8
+    destPort: any
+    syslogEnabled: true
+  - comment: Allow WAN
+    policy: allow
+    protocol: any
+    srcCidr: "VLAN500,VLAN600"
+    srcPort: any
+    destCidr: 10.0.0.0/8
+    destPort: any
+    syslogEnabled: true
+  - comment: Allow DATA to Internet
+    policy: allow
+    protocol: any
+    srcCidr: VLAN500
+    srcPort: any
+    destCidr: any
+    destPort: any
+    syslogEnabled: true
+  - comment: Allow VOIP
+    policy: allow
+    protocol: any
+    srcCidr: VLAN600
+    srcPort: any
+    destCidr: any
+    destPort: any
+    syslogEnabled: true
+  - comment: Allow QRTE
+    policy: allow
+    protocol: any
+    srcCidr: VLAN700
+    srcPort: any
+    destCidr: any
+    destPort: any
+    syslogEnabled: true
+  - comment: Who is Boss
+    policy: deny
+    protocol: any
+    srcCidr: "VLAN400,VLAN500,VLAN600,VLAN700"
+    srcPort: any
+    destCidr: "10.0.0.0/8"
+    destPort: any
+    syslogEnabled: true
