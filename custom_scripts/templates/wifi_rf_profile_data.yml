@@ -1,0 +1,20 @@
+---
+project:
+  - name: VON WiFi Profile
+    clientBalancingEnabled: true
+    minBitrateType: band
+    bandSelectionType: ap
+    apBandSettings:
+      bandOperationMode: dual
+      bandSteeringEnabled: true
+    twoFourGhzSettings:
+      minPower: 11
+      maxPower: 27
+      minBitrate: 12
+      axEnabled: true
+    fiveGhzSettings:
+      minPower: 11
+      maxPower: 27
+      minBitrate: 12
+      axEnabled: true
+      channelWidth: 40

@@ -1,0 +1,42 @@
+---
+project:
+  - name: VON Data
+    enabled: true
+    authMode: 8021x-radius
+    wpaEncryptionMode: WPA2 only
+    radiusServers: VON_DATA_RADIUS
+    radiusAccountingServers: VON_DATA_ACC
+    radiusAccountingEnabled: true
+    ipAssignmentMode: Bridge mode
+    useVlanTagging: true
+    defaultVlanId: 500
+    dot11r:
+      enabled: true
+
+  - name: VON Employees
+    enabled: True
+    authMode: 8021x-radius
+    wpaEncryptionMode: WPA2 only
+    radiusServers: VON_EMPLOYEE_RADIUS
+    radiusAccountingServers: VON_EMPLOYEE_ACC
+    radiusAccountingEnabled: True
+    ipAssignmentMode: Bridge mode
+    useVlanTagging: True
+    defaultVlanId: 700
+    dot11r:
+      enabled: true
+
+  - name: VON Guest
+    enabled: True
+    authMode: psk
+    encryptionMode: wpa
+    wpaEncryptionMode: WPA2 only
+    psk: VANOORD01!
+    radiusServers: VON_EMPLOYEE_RADIUS
+    radiusAccountingServers: VON_EMPLOYEE_ACC
+    radiusAccountingEnabled: True
+    ipAssignmentMode: Bridge mode
+    useVlanTagging: True
+    defaultVlanId: 700
+    dot11r:
+      enabled: true
