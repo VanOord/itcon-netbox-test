@@ -1,0 +1,16 @@
+project:
+  - name: VON DATA
+    accessPolicyNumber: 1
+    radiusAccountingEnabled: True
+    radiusGroupAttribute: ""
+    radiusServers: VON_DATA_RADIUS
+    radiusAccountingServers: VON_DATA_ACC
+    radiusTestingEnabled: True
+    hostMode: Multi-Auth
+    accessPolicyType: 802.1x
+    guestPortBouncing: False
+    radiusCoaSupportEnabled: False
+    voiceVlanClients: False
+    urlRedirectWalledGardenEnabled: False
+    dot1x:
+      controlDirection: both
