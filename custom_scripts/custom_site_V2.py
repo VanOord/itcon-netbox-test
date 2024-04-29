@@ -9,6 +9,7 @@ from netaddr import IPNetwork, IPSet, cidr_merge
 from typing import Dict, Set
 from ipaddress import ip_network
 from typing import Dict, Set
+import pytz
 class NewProjectSiteScript(Script):
 
     class Meta:
@@ -24,6 +25,12 @@ class NewProjectSiteScript(Script):
         required=False,
         description="Tenant for the new site",
         default=Tenant.objects.get(name='Connectivity').id if Tenant.objects.filter(name='Connectivity').exists() else None
+    )
+
+    timezone = ChoiceVar(
+        choices=[(tz, tz) for tz in pytz.all_timezones],
+        required=False,
+        description="Optional: Timezone of the new site"
     )
 
     routers = MultiObjectVar(
@@ -48,6 +55,12 @@ class NewProjectSiteScript(Script):
     )
 
     def run(self, data, commit):
+
+        timezone = data['timezone']
+        if timezone:
+            self.log_info(f"Timezone specified: {timezone}")
+        else:
+            self.log_info("No timezone specified.")
 
         # Initialize counters
         device_counters = {
@@ -89,7 +102,6 @@ class NewProjectSiteScript(Script):
         }
 
         # Iterate over each VLAN and its corresponding subnet
-        # Iterate over each VLAN and its corresponding subnet
         for vlan_id, subnet in vlan_prefix_mappings.items():
             self.log_info(f"Checking available /24 prefixes for VLAN {vlan_id} in subnet {subnet}")
             available_prefixes = self.find_available_prefixes(subnet)
@@ -116,14 +128,17 @@ class NewProjectSiteScript(Script):
     def create_site(self, data):
         try:
             site_group, _ = SiteGroup.objects.get_or_create(name='Project Site')
+            self.log_info(f"Site TZ : {data.get('timezone')}")
             site = Site.objects.create(
                 name=data['site_name'],
                 slug=slugify(data['site_name']),
                 status=SiteStatusChoices.STATUS_PLANNED,
                 region=data.get('region'),
                 tenant=data.get('tenant'),
+                time_zone = data.get('timezone'),
                 group=site_group
             )
+
             self.log_success(f"Created new site: {site}")
             return site
         except Exception as e:

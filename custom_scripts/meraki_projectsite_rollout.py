@@ -7,6 +7,7 @@ import os
 from netaddr import IPNetwork 
 from extras.scripts import *
 from dcim.models import *
+from dcim.choices import *
 from ipam.models import VLAN, Prefix
 from extras.models import Tag
 from meraki import DashboardAPI, APIError
@@ -64,7 +65,8 @@ class ProjectSiteRolloutMERAKI(Script):
     def run(self, data, commit):
         dashboard = DashboardAPI(api_key=data['meraki_api_key'], suppress_logging=True, wait_on_rate_limit=True, maximum_retries=100 )
         organization_id = self.fetch_organization_id(dashboard)
-        network_id = self.new_network(dashboard, organization_id, data['site'].name)
+
+        network_id = self.new_network(dashboard, organization_id, data['site'].name, data['site'].time_zone)
 
         # Device management
         self.set_device_names(data['site'], network_id, dashboard)
@@ -102,6 +104,12 @@ class ProjectSiteRolloutMERAKI(Script):
         # Configure WiFi SSIDs
         self.set_mr_defaults(dashboard, network_id, data['site'], data['region_scope'], data['region_location'])
 
+        # At the end of the script, set the site status to 'active'
+        self.set_site_status(data['site'], SiteStatusChoices.STATUS_ACTIVE)
+
+        # Update the custom fields
+        self.set_site_custom_fields(dashboard, data['site'], network_id)
+
         self.log_success("Script completed successfully.")
 
     def fetch_organization_id(self, client: DashboardAPI):
@@ -112,7 +120,7 @@ class ProjectSiteRolloutMERAKI(Script):
             sys.exit(1)
         return organizations[0]['id']
 
-    def new_network(self, client: DashboardAPI, org_id: str, network_name: str):
+    def new_network(self, client: DashboardAPI, org_id: str, network_name: str, timezone: str):
         self.log_info("Checking for existing network.")
         networks = client.organizations.getOrganizationNetworks(org_id)
         for network in networks:
@@ -120,11 +128,13 @@ class ProjectSiteRolloutMERAKI(Script):
                 self.log_info(f"Network '{network_name}' already exists.")
                 return network["id"]
 
+        self.log_info(f"Network TZ: {timezone}")
         self.log_info(f"Creating new network: {network_name}")
         params = {
             "name": network_name,
             "productTypes": ["appliance", "switch", "wireless"],
             "tags": ["appliance", "switch", "wireless", "Project-Site"],
+            "timeZone": str(timezone),
         }
         try:
             network = client.organizations.createOrganizationNetwork(org_id, **params)
@@ -417,7 +427,7 @@ class ProjectSiteRolloutMERAKI(Script):
 
             rules.append(rule)
 
-        self.log_info(f"Updated L3 Rules: {rules}")
+            self.log_info(f"Configured rule: {rule}")
 
         # Attempt to configure L3 firewall rules
         try:
@@ -815,3 +825,27 @@ class ProjectSiteRolloutMERAKI(Script):
                 self.log_info(f"Configured port {port_number} on switch {switch_name} {serial} with settings: {port_config}")
 
         self.log_success("Completed port configurations for all eligible switches at the site.")
+
+    def set_site_status(self, site, status):
+        try:
+            site.status = status
+            site.save()
+            self.log_info(f"Site {site.name} status updated to {status}.")
+        except Exception as e:
+            self.log_failure(f"Failed to update site status: {e}")
+
+    def set_site_custom_fields(self, client: DashboardAPI, site, network_id):
+        # Assuming the URL for the Meraki dashboard network page is standard
+        try:
+            response = client.networks.getNetwork(network_id)
+            self.log_info(f"Retrieved network details for {network_id}.")
+        except APIError as e:
+            self.log_failure(f"Failed to retrieve network details for {network_id}: {e}")
+
+        try:
+            site.custom_field_data['meraki_networkid'] = network_id
+            site.custom_field_data['url'] = response['url']
+            site.save()
+            self.log_info(f"Updated custom fields: Meraki Network ID set to {network_id} and URL to {response['url']}.")
+        except Exception as e:
+            self.log_failure(f"Failed to update custom fields for site {site.name}: {e}")
