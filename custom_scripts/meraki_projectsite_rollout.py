@@ -9,9 +9,9 @@ from extras.scripts import *
 from dcim.models import *
 from dcim.choices import *
 from ipam.models import VLAN, Prefix
-from extras.models import Tag
+from extras.models import ConfigContext, Tag
 from meraki import DashboardAPI, APIError
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, MultipleObjectsReturned, ObjectDoesNotExist
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -90,7 +90,7 @@ class ProjectSiteRolloutMERAKI(Script):
         self.set_mx_l3_firewall(dashboard, network_id, data['site'])
 
         # Configure SD-WAN Layer7 Firewall Rules
-        self.set_mx_l7_firewall(dashboard, network_id)
+        self.set_mx_l7_firewall(dashboard, network_id, data['site'])
 
         # Configure SD-WAN Switch Access Policies
         self.set_ms_access_policy(dashboard, network_id, data['site'], data['region_scope'], data['region_location'])
@@ -167,7 +167,6 @@ class ProjectSiteRolloutMERAKI(Script):
                     self.log_info(f"Device {name} with serial {serial} successfully named in Meraki.")
                 except APIError as e:
                     self.log_failure(f"Error naming device {name} with serial {serial} : {e}")
-
 
     def set_network_defaults(self, client: DashboardAPI, network_id: str):
         # SNMP Configuration
@@ -275,7 +274,6 @@ class ProjectSiteRolloutMERAKI(Script):
                 except APIError as e:
                     self.log_failure(f"Failed to update VLAN {vlan.vid}: {e}")
 
-
     def set_mx_port_defaults(self, client: DashboardAPI, org_id: str, network_id: str):
         """
         Configure default downlink port settings for MX appliances based on the model type.
@@ -382,11 +380,24 @@ class ProjectSiteRolloutMERAKI(Script):
             self.log_failure(f"Failed to configure the auto VPN: {err}")
 
     def set_mx_l3_firewall(self, client: DashboardAPI, network_id: str, site):
-        # Load the L3 firewall rules using the load_yaml convenience method.
         try:
-            l3_rules = self.load_yaml('templates/l3_firewall_data.yml')['project']
-        except Exception as err:
-            self.log_failure(f"Failed to read the firewall rules from file: {err}")
+            # Retrieve the SDWAN-appliance device from the given site
+            device = Device.objects.get(role__slug="sdwan-appliance", site=site)
+        except ObjectDoesNotExist:
+            self.log_failure(f"No SDWAN-Appliance found at site {site}")
+            return
+        except MultipleObjectsReturned:
+            self.log_failure(f"Multiple SDWAN-Appliance devices found at site {site}")
+            return
+
+        # Retrieve the aggregated config context for the device
+        config_context = device.get_config_context()
+        self.log_info(f"L3 Config context data: {config_context['project']['l3_rules']}")
+        try:
+            # Assuming L3 firewall rules are defined within the device's config context
+            l3_rules = config_context['project']['l3_rules']
+        except KeyError as err:
+            self.log_failure(f"Firewall rules not defined in config context for device at site {site}: {err}")
             return
 
         # Fetching prefixes and preparing IP replacements
@@ -436,25 +447,32 @@ class ProjectSiteRolloutMERAKI(Script):
         except APIError as err:
             self.log_failure(f"Failed to configure L3 firewall rules: {err}")
 
-    def set_mx_l7_firewall(self, client: DashboardAPI, network_id: str):
+    def set_mx_l7_firewall(self, client: DashboardAPI, network_id: str, site):
         """
         Configure default MX L7 firewall rules.
         """
-        rules = [
-            {
-                "policy": "deny",
-                "type": "applicationCategory",
-                "value": {"id": "meraki:layer7/category/27", "name": "Advertising"},
-            },
-            {
-                "policy": "deny",
-                "type": "applicationCategory",
-                "value": {"id": "meraki:layer7/category/6", "name": "Gaming"},
-            },
-        ]
+        try:
+            # Retrieve the SDWAN-appliance device from the given site
+            device = Device.objects.get(role__slug="sdwan-appliance", site=site)
+        except ObjectDoesNotExist:
+            self.log_failure(f"No SDWAN-Appliance found at site {site}")
+            return
+        except MultipleObjectsReturned:
+            self.log_failure(f"Multiple SDWAN-Appliance devices found at site {site}")
+            return
+
+        # Retrieve the aggregated config context for the device
+        config_context = device.get_config_context()
+        self.log_info(f"L7 Config context data: {config_context['project']['l7_rules']}")
+        try:
+            # Assuming L3 firewall rules are defined within the device's config context
+            l7_rules = config_context['project']['l7_rules']
+        except KeyError as err:
+            self.log_failure(f"Firewall rules not defined in config context for device at site {site}: {err}")
+            return
 
         # Log each rule's details
-        for rule in rules:
+        for rule in l7_rules:
             self.log_info(
                 f"Configuring L7 Rule - Network: {network_id}, Policy: {rule['policy']}, "
                 f"Type: {rule['type']}, Value ID: {rule['value']['id']}, Value Name: {rule['value']['name']}"
@@ -462,26 +480,32 @@ class ProjectSiteRolloutMERAKI(Script):
 
         try:
             client.appliance.updateNetworkApplianceFirewallL7FirewallRules(
-                network_id, rules=rules
+                network_id, rules=l7_rules
             )
             self.log_info("Successfully configured L7 firewall rules.")
         except APIError as err:
             self.log_failure(
-                f"Failed to configure L7 firewall rules: {err}, Rules: {rules}"
+                f"Failed to configure L7 firewall rules: {err}, Rules: {l7_rules}"
             )
 
     def set_ms_access_policy(self, client: DashboardAPI, network_id: str, site, scope, location):
         """
         Configures MS Access Policy based on the provided regional information and network details.
         """
+        # Load access policy configurations from template
+        device = Device.objects.filter(role__slug="sdwan-switch", site=site).first()
+        if not device:
+            self.log_failure(f"No suitable SDWAN-Switch found at site {site}")
+            return
 
-        # Load access policy configurations from a YAML file
+        # Retrieve the aggregated config context for the device
+        config_context = device.get_config_context()
+        self.log_info(f"MS Port Access Policy Config context data: {config_context['project']['ms_access_profile_data']}")
         try:
-            config_data = self.load_yaml('templates/ms_access_profile_data.yml')
-            policies = config_data['project']  # Assuming 'project' contains a list of policies
-            self.log_info("Loaded MS Access Policy configurations from YAML.")
-        except Exception as err:
-            self.log_failure(f"Failed to read MS Access Policy configuration file: {err}")
+            # Assuming Port Access Policy rules are defined within the device's config context
+            policies = config_context['project']['ms_access_profile_data']
+        except KeyError as err:
+            self.log_failure(f"Access policy data not defined in config context for device at site {site}: {err}")
             return
 
         # Define regional IP addresses and policy details based on the site's region and scope
@@ -595,12 +619,22 @@ class ProjectSiteRolloutMERAKI(Script):
             self.log_info(f"No access points with role 'sdwan-ap' found at site {site.name}. Skipping RF profile configuration.")
             return
 
+       # Load access policy configurations from template
+        device = Device.objects.filter(role__slug="sdwan-ap", site=site).first()
+        if not device:
+            self.log_failure(f"No suitable SDWAN-AP found at site {site}")
+            return
+
+        # Retrieve the aggregated config context for the device
+        config_context = device.get_config_context()
+        self.log_info(f"WiFi RF Profile Config context data: {config_context['project']['wifi_rf_profiles'][0]}")
         try:
-            rf_profile_data = self.load_yaml('templates/wifi_rf_profile_data.yml')['project'][0]
-            self.log_info(f"Loaded RF profile settings for '{rf_profile_data['name']}' from YAML.")
-        except Exception as err:
+            # Assuming WiFi RF Profile is defined within the device's config context
+            rf_profile_data = config_context['project']['wifi_rf_profiles'][0]
+        except KeyError as err:
             self.log_failure(f"Failed to read the Wireless RF profile file: {err}")
             return
+
 
         rf_profile_params = {
             "name": rf_profile_data['name'],
@@ -714,9 +748,10 @@ class ProjectSiteRolloutMERAKI(Script):
 
         # Example API call to configure SSIDs would go here
         # Implement SSID configuration using von_data_radius_servers and von_emp_radius_servers
-
+        config_context = access_points[0].get_config_context()
+        self.log_info(f"WiFi SSIDs Profile Config context data: {config_context['project']['wifi_ssid_data']}")
         try:
-            ssids = self.load_yaml('templates/wifi_ssid_data.yml')['project']
+            ssids = config_context['project']['wifi_ssid_data']
             self.log_info("Loaded WiFi SSID profile settings successfully.")
         except Exception as err:
             self.log_failure(f"Failed to read the Wireless SSID file: {err}")
