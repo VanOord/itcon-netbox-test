@@ -1,0 +1,221 @@
+{
+    "project": {
+      "l3_rule": [
+        {
+          "comment": "Allow Meraki DFT",
+          "policy": "allow",
+          "protocol": "any",
+          "srcCidr": "VLAN1",
+          "srcPort": "any",
+          "destCidr": "any",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Allow MGMT",
+          "policy": "allow",
+          "protocol": "any",
+          "srcCidr": "VLAN400",
+          "srcPort": "any",
+          "destCidr": "any",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Allow DC to MGMT",
+          "policy": "allow",
+          "protocol": "tcp",
+          "srcCidr": "VANOORD_DC",
+          "srcPort": "any",
+          "destCidr": "VLAN400",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Allow Azure to MGMT",
+          "policy": "allow",
+          "protocol": "tcp",
+          "srcCidr": "10.111.0.0/16,10.180.0.0/16",
+          "srcPort": "any",
+          "destCidr": "VLAN400",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Deny WAN to MGMT",
+          "policy": "deny",
+          "protocol": "any",
+          "srcCidr": "10.0.0.0/8",
+          "srcPort": "any",
+          "destCidr": "VLAN400",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Allow QRTE Printing",
+          "policy": "allow",
+          "protocol": "any",
+          "srcCidr": "VLAN700",
+          "srcPort": "any",
+          "destCidr": "PRINT500",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Deny QRTE WAN",
+          "policy": "deny",
+          "protocol": "any",
+          "srcCidr": "VLAN700",
+          "srcPort": "any",
+          "destCidr": "10.0.0.0/8",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Allow WAN",
+          "policy": "allow",
+          "protocol": "any",
+          "srcCidr": "VLAN500,VLAN600",
+          "srcPort": "any",
+          "destCidr": "10.0.0.0/8",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Allow DATA to Internet",
+          "policy": "allow",
+          "protocol": "any",
+          "srcCidr": "VLAN500",
+          "srcPort": "any",
+          "destCidr": "any",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Allow VOIP",
+          "policy": "allow",
+          "protocol": "any",
+          "srcCidr": "VLAN600",
+          "srcPort": "any",
+          "destCidr": "any",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Allow QRTE",
+          "policy": "allow",
+          "protocol": "any",
+          "srcCidr": "VLAN700",
+          "srcPort": "any",
+          "destCidr": "any",
+          "destPort": "any",
+          "syslogEnabled": true
+        },
+        {
+          "comment": "Who is Boss",
+          "policy": "deny",
+          "protocol": "any",
+          "srcCidr": "VLAN400,VLAN500,VLAN600,VLAN700",
+          "srcPort": "any",
+          "destCidr": "10.0.0.0/8",
+          "destPort": "any",
+          "syslogEnabled": true
+        }
+      ],
+      "wifi_rf_profiles": [
+        {
+          "name": "VON WiFi Profile",
+          "clientBalancingEnabled": true,
+          "minBitrateType": "band",
+          "bandSelectionType": "ap",
+          "apBandSettings": {
+            "bandOperationMode": "dual",
+            "bandSteeringEnabled": true
+          },
+          "twoFourGhzSettings": {
+            "minPower": 11,
+            "maxPower": 27,
+            "minBitrate": 12,
+            "axEnabled": true
+          },
+          "fiveGhzSettings": {
+            "minPower": 11,
+            "maxPower": 27,
+            "minBitrate": 12,
+            "axEnabled": true,
+            "channelWidth": 40
+          }
+        }
+      ],
+      "wifi_ssid_data": [
+        {
+          "name": "VON Data",
+          "enabled": true,
+          "authMode": "8021x-radius",
+          "wpaEncryptionMode": "WPA2 only",
+          "radiusServers": "VON_DATA_RADIUS",
+          "radiusAccountingServers": "VON_DATA_ACC",
+          "radiusAccountingEnabled": true,
+          "ipAssignmentMode": "Bridge mode",
+          "useVlanTagging": true,
+          "defaultVlanId": 500,
+          "dot11r": {
+            "enabled": true
+          }
+        },
+        {
+          "name": "VON Employees",
+          "enabled": true,
+          "authMode": "8021x-radius",
+          "wpaEncryptionMode": "WPA2 only",
+          "radiusServers": "VON_EMPLOYEE_RADIUS",
+          "radiusAccountingServers": "VON_EMPLOYEE_ACC",
+          "radiusAccountingEnabled": true,
+          "ipAssignmentMode": "Bridge mode",
+          "useVlanTagging": true,
+          "defaultVlanId": 700,
+          "dot11r": {
+            "enabled": true
+          }
+        },
+        {
+          "name": "VON Guest",
+          "enabled": true,
+          "authMode": "psk",
+          "encryptionMode": "wpa",
+          "wpaEncryptionMode": "WPA2 only",
+          "psk": "VANOORD01!",
+          "radiusServers": "VON_EMPLOYEE_RADIUS",
+          "radiusAccountingServers": "VON_EMPLOYEE_ACC",
+          "radiusAccountingEnabled": true,
+          "ipAssignmentMode": "Bridge mode",
+          "useVlanTagging": true,
+          "defaultVlanId": 700,
+          "dot11r": {
+            "enabled": true
+          }
+        }
+      ],
+      "ms_access_profile_data": [
+        {
+          "name": "VON DATA",
+          "accessPolicyNumber": 1,
+          "radiusAccountingEnabled": true,
+          "radiusGroupAttribute": "",
+          "radiusServers": "VON_DATA_RADIUS",
+          "radiusAccountingServers": "VON_DATA_ACC",
+          "radiusTestingEnabled": true,
+          "hostMode": "Multi-Auth",
+          "accessPolicyType": "802.1x",
+          "guestPortBouncing": false,
+          "radiusCoaSupportEnabled": false,
+          "voiceVlanClients": false,
+          "urlRedirectWalledGardenEnabled": false,
+          "dot1x": {
+            "controlDirection": "both"
+          }
+        }
+      ]
+    }
+  }
+  
