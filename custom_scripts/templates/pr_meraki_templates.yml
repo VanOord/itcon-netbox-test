@@ -1,5 +1,5 @@
 project:
-  l3_rule:
+  l3_rules:
     - comment: Allow Meraki DFT
       policy: allow
       protocol: any
