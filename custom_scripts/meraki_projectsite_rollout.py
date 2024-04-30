@@ -9,9 +9,10 @@ from extras.scripts import *
 from dcim.models import *
 from dcim.choices import *
 from ipam.models import VLAN, Prefix
-from extras.models import ConfigContext, Tag
+from extras.models import ConfigContext, Tag, JournalEntry
 from meraki import DashboardAPI, APIError
 from django.core.exceptions import ValidationError, MultipleObjectsReturned, ObjectDoesNotExist
+from django.contrib.contenttypes.models import ContentType
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -62,7 +63,33 @@ class ProjectSiteRolloutMERAKI(Script):
         default='WE'
     )
 
+    def log_to_journal(self, message, obj, level='info'):
+        """
+        Helper function to log messages to both the console and the site's journal.
+        
+        Args:
+        message (str): The message to log.
+        obj (models.Model): The Django model instance to associate with the journal entry.
+        level (str): The logging level ('info', 'success', 'warning', 'error').
+        """
+        # Log to console or file
+        logger_method = getattr(logger, level, logger.info)
+        logger_method(message)
+
+        # Create a journal entry
+        entry = JournalEntry(
+            created_by=self.request.user if hasattr(self, 'request') else None,
+            assigned_object=obj,  # Assuming `obj` is a model instance like Site, Device, etc.
+            kind=level,
+            comments=message
+        )
+        entry.save()
+
+
     def run(self, data, commit):
+
+        self.log_to_journal("Starting script execution.", data['site'])
+
         dashboard = DashboardAPI(api_key=data['meraki_api_key'], suppress_logging=True, wait_on_rate_limit=True, maximum_retries=100 )
         organization_id = self.fetch_organization_id(dashboard)
 
@@ -882,5 +909,7 @@ class ProjectSiteRolloutMERAKI(Script):
             site.custom_field_data['url'] = response['url']
             site.save()
             self.log_info(f"Updated custom fields: Meraki Network ID set to {network_id} and URL to {response['url']}.")
+            self.log_info(f"Updated custom fields: Meraki Network ID set to {network_id} and URL to {response['url']}.")
         except Exception as e:
             self.log_failure(f"Failed to update custom fields for site {site.name}: {e}")
+
